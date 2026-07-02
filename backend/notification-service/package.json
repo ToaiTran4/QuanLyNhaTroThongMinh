@@ -1,0 +1,1 @@
+﻿{"name":"notification-service","version":"1.0.0","description":"Notification service","main":"src/index.js","scripts":{"test":"jest tests/"},"dependencies":{"aws-sdk":"^2.1400.0"},"devDependencies":{"jest":"^29.5.0"}}

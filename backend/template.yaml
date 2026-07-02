@@ -1,0 +1,360 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: QuanLyNhaTroThongMinh - Multi-tenant room rental management system
+
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    Timeout: 30
+    MemorySize: 256
+    Environment:
+      Variables:
+        DB_HOST: !Ref DBHost
+        DB_PORT: !Ref DBPort
+        DB_NAME: !Ref DBName
+        DB_USER: !Ref DBUser
+        DB_PASSWORD: !Ref DBPassword
+        AWS_REGION: !Ref AWS::Region
+        COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
+        COGNITO_CLIENT_ID: !Ref CognitoClientId
+
+Parameters:
+  Stage:
+    Type: String
+    Default: staging
+    AllowedValues:
+      - staging
+      - production
+  DBHost:
+    Type: String
+  DBPort:
+    Type: String
+    Default: "5432"
+  DBName:
+    Type: String
+  DBUser:
+    Type: String
+  DBPassword:
+    Type: String
+  CognitoUserPoolId:
+    Type: String
+  CognitoClientId:
+    Type: String
+
+Resources:
+  # Common Layer
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${Stage}-common-layer"
+      Description: Common utilities, middleware, and database client
+      ContentUri: layers/common
+      CompatibleRuntimes:
+        - nodejs18.x
+      RetentionPolicy: Retain
+
+  # API Gateway
+  QuanLyNhaTroApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Stage
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !Sub "arn:aws:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/${CognitoUserPoolId}"
+
+  # Lambda Execution Role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AmazonRDSDataFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonTextractFullAccess
+        - arn:aws:iam::aws:policy/AmazonSESFullAccess
+        - arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess
+
+  # Auth Service
+  AuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Stage}-auth-service"
+      CodeUri: auth-service
+      Handler: src/index.handler
+      Layers:
+        - !Ref CommonLayer
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        Login:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /auth/login
+            Method: POST
+            Auth:
+              Authorizer: NONE
+        RefreshToken:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /auth/refresh-token
+            Method: POST
+            Auth:
+              Authorizer: NONE
+        Activate:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /auth/activate
+            Method: POST
+            Auth:
+              Authorizer: NONE
+
+  # Room Service
+  RoomFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Stage}-room-service"
+      CodeUri: room-service
+      Handler: src/index.handler
+      Layers:
+        - !Ref CommonLayer
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        GetRooms:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /rooms
+            Method: GET
+        CreateRoom:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /rooms
+            Method: POST
+        GetRoom:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /rooms/{id}
+            Method: GET
+        UpdateRoom:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /rooms/{id}
+            Method: PUT
+        DeleteRoom:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /rooms/{id}
+            Method: DELETE
+
+  # Contract Service
+  ContractFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Stage}-contract-service"
+      CodeUri: contract-service
+      Handler: src/index.handler
+      Layers:
+        - !Ref CommonLayer
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        GetContracts:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /contracts
+            Method: GET
+        CreateContract:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /contracts
+            Method: POST
+        GetContract:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /contracts/{id}
+            Method: GET
+        UpdateContract:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /contracts/{id}
+            Method: PUT
+
+  # Config Service
+  ConfigFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Stage}-config-service"
+      CodeUri: config-service
+      Handler: src/index.handler
+      Layers:
+        - !Ref CommonLayer
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        GetConfig:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /config
+            Method: GET
+        UpdateConfig:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /config
+            Method: PUT
+
+  # Utility Service
+  UtilityFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Stage}-utility-service"
+      CodeUri: utility-service
+      Handler: src/index.handler
+      Layers:
+        - !Ref CommonLayer
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        GetReadings:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /readings
+            Method: GET
+        CreateReading:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /readings
+            Method: POST
+        GetReading:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /readings/{id}
+            Method: GET
+
+  # Invoice Service
+  InvoiceFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Stage}-invoice-service"
+      CodeUri: invoice-service
+      Handler: src/index.handler
+      Layers:
+        - !Ref CommonLayer
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        GetInvoices:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /invoices
+            Method: GET
+        GetInvoice:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /invoices/{id}
+            Method: GET
+
+  # Repair Service
+  RepairFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Stage}-repair-service"
+      CodeUri: repair-service
+      Handler: src/index.handler
+      Layers:
+        - !Ref CommonLayer
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        GetRepairs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /repairs
+            Method: GET
+        CreateRepair:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /repairs
+            Method: POST
+        GetRepair:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /repairs/{id}
+            Method: GET
+
+  # Chat Service
+  ChatFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Stage}-chat-service"
+      CodeUri: chat-service
+      Handler: src/index.handler
+      Layers:
+        - !Ref CommonLayer
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        GetMessages:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /chat/{contractId}/messages
+            Method: GET
+        SendMessage:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /chat/{contractId}/messages
+            Method: POST
+
+  # Notification Service
+  NotificationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${Stage}-notification-service"
+      CodeUri: notification-service
+      Handler: src/index.handler
+      Layers:
+        - !Ref CommonLayer
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Events:
+        GetNotifications:
+          Type: Api
+          Properties:
+            RestApiId: !Ref QuanLyNhaTroApi
+            Path: /notifications
+            Method: GET
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${QuanLyNhaTroApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/"
+  CommonLayerArn:
+    Description: "Common Layer ARN"
+    Value: !Ref CommonLayer

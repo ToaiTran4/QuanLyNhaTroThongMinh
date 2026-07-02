@@ -1,0 +1,1 @@
+﻿{"name":"chat-service","version":"1.0.0","description":"Chat and messaging service","main":"src/index.js","scripts":{"test":"jest tests/"},"dependencies":{},"devDependencies":{"jest":"^29.5.0"}}

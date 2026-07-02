@@ -1,0 +1,39 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    - name: Set up AWS SAM
+      uses: aws-actions/setup-sam@v2
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    - name: Build and deploy backend with SAM
+      working-directory: backend
+      run: |
+        sam build
+        sam deploy --no-confirm-changeset --no-fail-on-empty-changeset \
+          --stack-name quanlynhathro-production \
+          --capabilities CAPABILITY_IAM \
+          --parameter-overrides \
+            Stage=production \
+            DBHost=${{ secrets.PRODUCTION_DB_HOST }} \
+            DBPort=${{ secrets.PRODUCTION_DB_PORT }} \
+            DBName=${{ secrets.PRODUCTION_DB_NAME }} \
+            DBUser=${{ secrets.PRODUCTION_DB_USER }} \
+            DBPassword=${{ secrets.PRODUCTION_DB_PASSWORD }} \
+            CognitoUserPoolId=${{ secrets.PRODUCTION_COGNITO_USER_POOL_ID }} \
+            CognitoClientId=${{ secrets.PRODUCTION_COGNITO_CLIENT_ID }}

@@ -1,0 +1,13 @@
+{
+  "name": "common-layer",
+  "version": "1.0.0",
+  "description": "Common utilities, middleware, and database client for QuanLyNhaTroThongMinh microservices",
+  "main": "src/index.js",
+  "keywords": ["lambda", "aws", "microservices"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "pg": "^8.11.0",
+    "joi": "^17.11.0"
+  }
+}

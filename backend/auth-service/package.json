@@ -1,0 +1,17 @@
+{
+  "name": "auth-service",
+  "version": "1.0.0",
+  "description": "Authentication and authorization service for QuanLyNhaTroThongMinh",
+  "main": "src/index.js",
+  "scripts": {
+    "test": "jest tests/"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1400.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.5.0"
+  }
+}

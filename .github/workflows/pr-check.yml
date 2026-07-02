@@ -1,0 +1,45 @@
+name: Pull Request Check
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    - name: Install dependencies (common layer)
+      working-directory: backend/layers/common
+      run: npm ci
+    - name: Install dependencies (all backend services)
+      run: |
+        for dir in backend/*-service; do
+          if [ -d "$dir" ]; then
+            cd "$dir"
+            npm ci
+            cd -
+          fi
+        done
+    - name: Install dependencies (frontend)
+      working-directory: frontend
+      run: npm ci
+    - name: Run backend tests
+      run: |
+        for dir in backend/*-service backend/layers/common; do
+          if [ -d "$dir" ] && [ -f "$dir/package.json" ]; then
+            cd "$dir"
+            if grep -q '"test":' package.json; then
+              npm test
+            fi
+            cd -
+          fi
+        done
+    - name: Run frontend tests
+      working-directory: frontend
+      run: npm test

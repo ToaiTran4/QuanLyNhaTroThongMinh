@@ -1,0 +1,1 @@
+﻿{"name":"repair-service","version":"1.0.0","description":"Repair request management service","main":"src/index.js","scripts":{"test":"jest tests/"},"dependencies":{},"devDependencies":{"jest":"^29.5.0"}}
